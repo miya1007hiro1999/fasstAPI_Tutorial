@@ -1,5 +1,6 @@
 from fastapi import FastAPI , Depends, HTTPException #new
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import FastAPI ,Depends,Form
 
 from starlette.templating import Jinja2Templates #new
 from starlette.requests import Request
@@ -217,4 +218,47 @@ def delete(request:Request, t_id, credentials: HTTPBasicCredentials = Depends(se
     
     return RedirectResponse('/admin')
 
+def get(request:Request, credentials: HTTPBasicCredentials = Depends(security)):
+    username = auth(credentials)
     
+    user = db.session.query(User).filter(User.username == username).first()
+    
+    task = db.session.query(Task).filter(Task.user_id == user.id).all()
+    
+    db.session.close()
+    
+    task = [{
+        'id' : t.id,
+        'content' :t.content,
+        'deadline': t.deadline.strftime('%Y-%m-%d %H:%M:%S'),
+        'published':t.date.strftime('%Y-%m-%d %H:%M:%S'),
+        'done':t.done,
+    } for t in task]
+    
+    return task    
+
+async def insert(request:Request,
+                 content: str = Form(...),deadline: str = Form(...),
+                 credentials: HTTPBasicCredentials = Depends(security)):
+    """
+    タスクを追加してJSONで新規タスクを返す。「deadline」は%Y-%m-%d_%H:%M:%S (e.g. 2019-11-03_12:30:00)の形式
+    """
+    username = auth(credentials)
+    
+    user = db.session.query(User).filter(User.username == username).first()
+    
+    task = Task(user.id, content, datetime.strptime(deadline,'%Y-%m-%d_%H:%M:%S'))
+    
+    db.session.add(task)
+    db.session.commit()
+    
+    task = db.session.query(Task).all()[-1]
+    db.session.close()
+    
+    return{
+        'id':task.id,
+        'content':task.content,
+        'deadline':task.deadline.strftime('%Y-%m-%d %H:%M:%S'),
+        'published':task.date.strftime('%Y-%m-%d %H:%M:%S'),
+        'done':task.done,
+    }
