@@ -201,4 +201,20 @@ async def add(request: Request, credentials: HTTPBasicCredentials = Depends(secu
     
     return RedirectResponse('/admin')
 
+def delete(request:Request, t_id, credentials: HTTPBasicCredentials = Depends(security)):
+    username = auth(credentials)
+    
+    user = db.session.query(User).filter(User.username == username).first()
+    
+    task = db.session.query(Task).filter(Task.id == t_id).first()
+    
+    if task.user_id != user.id:
+        return RedirectResponse('/admin')
+    
+    db.session.delete(task)
+    db.session.commit()
+    db.session.close()
+    
+    return RedirectResponse('/admin')
+
     
